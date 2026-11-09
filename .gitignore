@@ -483,3 +483,8 @@ $RECYCLE.BIN/
 
 techsupport/
 
+
+*.db
+*.db-shm
+*.db-wal
+
