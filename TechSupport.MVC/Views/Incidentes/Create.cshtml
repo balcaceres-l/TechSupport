@@ -1,0 +1,63 @@
+@model TechSupport.MVC.Models.CreateIncidenteViewModel
+@{
+    ViewData["Title"] = "Nuevo Incidente";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <div class="mb-4">
+                    <a asp-action="Index" class="text-decoration-none small text-muted">← Volver al listado</a>
+                    <h3 class="fw-bold text-dark mt-2">➕ Reportar Nuevo Incidente</h3>
+                    <p class="text-muted small">Describe el problema técnico para que nuestro equipo pueda atenderlo.</p>
+                </div>
+
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <div asp-validation-summary="All" class="small mb-0"></div>
+                    </div>
+                }
+
+                <form asp-action="Create" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label asp-for="Titulo" class="form-label fw-semibold"></label>
+                        <input asp-for="Titulo" class="form-control rounded-3" placeholder="Ej: No funciona la conexión a la base de datos" autofocus />
+                        <span asp-validation-for="Titulo" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Prioridad" class="form-label fw-semibold"></label>
+                        <select asp-for="Prioridad" class="form-select rounded-3">
+                            <option value="Baja">Baja</option>
+                            <option value="Media" selected>Media</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Critica">Crítica</option>
+                        </select>
+                        <span asp-validation-for="Prioridad" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Descripcion" class="form-label fw-semibold"></label>
+                        <textarea asp-for="Descripcion" class="form-control rounded-3" rows="5" placeholder="Detalla los pasos para reproducir el fallo o el comportamiento observado..."></textarea>
+                        <span asp-validation-for="Descripcion" class="text-danger small"></span>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a asp-action="Index" class="btn btn-light rounded-pill px-4">Cancelar</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm fw-semibold">
+                            Registrar Incidente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

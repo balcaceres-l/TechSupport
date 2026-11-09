@@ -1,0 +1,84 @@
+@model TechSupport.MVC.Models.IncidenteViewModel
+@{
+    ViewData["Title"] = $"Incidente #{Model.Id}";
+    var rol = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+    var badgePrioridad = Model.Prioridad switch
+    {
+        "Critica" => "bg-danger",
+        "Alta" => "bg-warning text-dark",
+        "Media" => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    var badgeEstado = Model.Estado switch
+    {
+        "Pendiente" => "bg-secondary",
+        "Asignado" => "bg-primary",
+        "EnProceso" => "bg-warning text-dark",
+        "Resuelto" => "bg-success",
+        "Cerrado" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-9 col-lg-8">
+        <div class="mb-3">
+            <a asp-action="Index" class="text-decoration-none text-muted small">← Volver al listado</a>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <span class="text-muted fw-bold">Ticket #@Model.Id</span>
+                        <h3 class="fw-bold text-dark mb-1">@Model.Titulo</h3>
+                        <div class="text-muted small">
+                            Reportado por <strong>@Model.NombreUsuario</strong> el @Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="badge @badgePrioridad rounded-pill fs-6 px-3 py-2">Prioridad: @Model.Prioridad</span>
+                        <span class="badge @badgeEstado rounded-pill fs-6 px-3 py-2">Estado: @Model.Estado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-secondary text-uppercase small">Descripción del Problema</h6>
+                <div class="p-3 bg-light rounded-3 mb-4 text-dark" style="white-space: pre-wrap;">@Model.Descripcion</div>
+
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="border rounded-3 p-3">
+                            <span class="text-muted small d-block">Técnico Responsable</span>
+                            @if (!string.IsNullOrEmpty(Model.NombreTecnico))
+                            {
+                                <span class="fw-bold text-primary fs-6">🛠️ @Model.NombreTecnico</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted fst-italic">Sin técnico asignado</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="border rounded-3 p-3">
+                            <span class="text-muted small d-block">Fecha de Resolución</span>
+                            @if (Model.FechaResolucion.HasValue)
+                            {
+                                <span class="fw-bold text-success fs-6">✅ @Model.FechaResolucion.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted fst-italic">Pendiente de resolución</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
