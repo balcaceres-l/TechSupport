@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -54,17 +55,8 @@ public class TechSupportApiClient : ITechSupportApiClient
 
             if (!response.IsSuccessStatusCode)
             {
-                try
-                {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    if (doc.RootElement.TryGetProperty("message", out var msgElement))
-                    {
-                        return (false, null, msgElement.GetString());
-                    }
-                }
-                catch { }
-
-                return (false, null, "Credenciales incorrectas o servidor no disponible.");
+                var errorMsg = ParseErrorMessage(response, responseBody, "Usuario o contraseña incorrectos.");
+                return (false, null, errorMsg);
             }
 
             var result = JsonSerializer.Deserialize<LoginResponseModel>(responseBody, _jsonOptions);
@@ -73,7 +65,7 @@ public class TechSupportApiClient : ITechSupportApiClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al conectar con el servicio de autenticación.");
-            return (false, null, "No se pudo conectar con el servidor de la API.");
+            return (false, null, "No se pudo establecer conexión con el servidor de la API.");
         }
     }
 
@@ -88,11 +80,12 @@ public class TechSupportApiClient : ITechSupportApiClient
                 var content = await response.Content.ReadAsStringAsync();
                 return JsonSerializer.Deserialize<List<IncidenteViewModel>>(content, _jsonOptions) ?? new List<IncidenteViewModel>();
             }
-            _logger.LogWarning("Error al obtener incidentes: Status {StatusCode}", response.StatusCode);
+
+            _logger.LogWarning("Error al consultar incidentes: HTTP {StatusCode}", response.StatusCode);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Excepción al consultar incidentes.");
+            _logger.LogError(ex, "Excepción al consultar lista de incidentes.");
         }
         return new List<IncidenteViewModel>();
     }
@@ -108,6 +101,8 @@ public class TechSupportApiClient : ITechSupportApiClient
                 var content = await response.Content.ReadAsStringAsync();
                 return JsonSerializer.Deserialize<IncidenteViewModel>(content, _jsonOptions);
             }
+
+            _logger.LogWarning("Error al consultar incidente #{Id}: HTTP {StatusCode}", id, response.StatusCode);
         }
         catch (Exception ex)
         {
@@ -130,28 +125,20 @@ public class TechSupportApiClient : ITechSupportApiClient
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("/api/incidentes", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
             if (response.IsSuccessStatusCode)
             {
                 return (true, null);
             }
 
-            var errorBody = await response.Content.ReadAsStringAsync();
-            try
-            {
-                using var doc = JsonDocument.Parse(errorBody);
-                if (doc.RootElement.TryGetProperty("message", out var msgElement))
-                {
-                    return (false, msgElement.GetString());
-                }
-            }
-            catch { }
-
-            return (false, $"Error al crear incidente (HTTP {response.StatusCode}).");
+            var error = ParseErrorMessage(response, responseBody, $"Error al crear incidente (HTTP {response.StatusCode}).");
+            return (false, error);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción al crear incidente.");
-            return (false, "Error de comunicación con el servicio.");
+            return (false, "Error de comunicación con el servicio de la API.");
         }
     }
 
@@ -163,19 +150,19 @@ public class TechSupportApiClient : ITechSupportApiClient
             var payload = new { tecnicoId };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
             var response = await _httpClient.PatchAsync($"/api/incidentes/{incidenteId}/asignar", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {
                 return (true, null);
             }
 
-            var errorBody = await response.Content.ReadAsStringAsync();
-            return (false, ExtraerMensajeError(errorBody, "Error al asignar técnico."));
+            return (false, ParseErrorMessage(response, responseBody, "Error al asignar técnico."));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción al asignar técnico.");
-            return (false, "Error de comunicación al asignar técnico.");
+            return (false, "Error de comunicación al contactar con la API.");
         }
     }
 
@@ -187,19 +174,19 @@ public class TechSupportApiClient : ITechSupportApiClient
             var payload = new { nuevoEstado };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
             var response = await _httpClient.PatchAsync($"/api/incidentes/{incidenteId}/estado", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {
                 return (true, null);
             }
 
-            var errorBody = await response.Content.ReadAsStringAsync();
-            return (false, ExtraerMensajeError(errorBody, "Error al cambiar estado."));
+            return (false, ParseErrorMessage(response, responseBody, "Error al cambiar estado."));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción al cambiar estado.");
-            return (false, "Error de comunicación al actualizar estado.");
+            return (false, "Error de comunicación con la API al actualizar estado.");
         }
     }
 
@@ -209,18 +196,19 @@ public class TechSupportApiClient : ITechSupportApiClient
         try
         {
             var response = await _httpClient.DeleteAsync($"/api/incidentes/{incidenteId}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
             if (response.IsSuccessStatusCode)
             {
                 return (true, null);
             }
 
-            var errorBody = await response.Content.ReadAsStringAsync();
-            return (false, ExtraerMensajeError(errorBody, "Error al eliminar incidente."));
+            return (false, ParseErrorMessage(response, responseBody, "Error al eliminar incidente."));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción al eliminar incidente.");
-            return (false, "Error de comunicación al eliminar incidente.");
+            return (false, "Error de comunicación con la API al eliminar incidente.");
         }
     }
 
@@ -238,22 +226,38 @@ public class TechSupportApiClient : ITechSupportApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Excepción al obtener lista de técnicos.");
+            _logger.LogError(ex, "Excepción al consultar lista de técnicos.");
         }
         return new List<UsuarioSimpleViewModel>();
     }
 
-    private static string ExtraerMensajeError(string json, string fallback)
+    private static string ParseErrorMessage(HttpResponseMessage response, string responseBody, string fallback)
     {
-        try
+        if (!string.IsNullOrWhiteSpace(responseBody))
         {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("message", out var msgElement))
+            try
             {
-                return msgElement.GetString() ?? fallback;
+                using var doc = JsonDocument.Parse(responseBody);
+                if (doc.RootElement.TryGetProperty("message", out var msgElement) && !string.IsNullOrWhiteSpace(msgElement.GetString()))
+                {
+                    return msgElement.GetString()!;
+                }
+                if (doc.RootElement.TryGetProperty("title", out var titleElement) && !string.IsNullOrWhiteSpace(titleElement.GetString()))
+                {
+                    return titleElement.GetString()!;
+                }
             }
+            catch { }
         }
-        catch { }
-        return fallback;
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.BadRequest => "Solicitud inválida. Verifique que cumple con las reglas de negocio.",
+            HttpStatusCode.Unauthorized => "Sesión inválida o expirada. Por favor, vuelva a iniciar sesión.",
+            HttpStatusCode.Forbidden => "Acceso denegado: no cuenta con los permisos necesarios para realizar esta acción.",
+            HttpStatusCode.NotFound => "El elemento solicitado no fue encontrado en el sistema.",
+            HttpStatusCode.InternalServerError => "Error interno en el servidor. Por favor comuníquese con el administrador.",
+            _ => fallback
+        };
     }
 }
