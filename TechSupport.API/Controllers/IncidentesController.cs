@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TechSupport.API.Data;
@@ -7,6 +8,7 @@ using TechSupport.API.Models;
 
 namespace TechSupport.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class IncidentesController : ControllerBase
