@@ -20,16 +20,32 @@ public class IncidenteDto
 
 public class CreateIncidenteDto
 {
-    [Required]
-    [MaxLength(200)]
+    [Required(ErrorMessage = "El título es obligatorio.")]
+    [MaxLength(200, ErrorMessage = "El título no puede superar los 200 caracteres.")]
     public string Titulo { get; set; } = string.Empty;
 
-    [Required]
-    [MaxLength(2000)]
+    [Required(ErrorMessage = "La descripción es obligatoria.")]
+    [MaxLength(2000, ErrorMessage = "La descripción no puede superar los 2000 caracteres.")]
     public string Descripcion { get; set; } = string.Empty;
 
     public Prioridad Prioridad { get; set; } = Prioridad.Media;
+}
 
-    // En Fase 1 (sin login activo), permitimos enviar UsuarioId opcional o requerido; por defecto 3 (usuario estandar)
-    public int UsuarioId { get; set; } = 3;
+public class AsignarTecnicoDto
+{
+    [Required(ErrorMessage = "El ID del técnico es obligatorio.")]
+    public int TecnicoId { get; set; }
+}
+
+public class CambiarEstadoDto
+{
+    [Required(ErrorMessage = "El nuevo estado es obligatorio.")]
+    public Estado NuevoEstado { get; set; }
+}
+
+public class UsuarioDto
+{
+    public int Id { get; set; }
+    public string NombreUsuario { get; set; } = string.Empty;
+    public Rol Rol { get; set; }
 }
