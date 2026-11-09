@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TechSupport.API.Data;
+using TechSupport.API.Middlewares;
 using TechSupport.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,6 +50,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Middleware centralizado de manejo de excepciones al inicio del pipeline
+app.UseExceptionHandlingMiddleware();
 
 // Inicializar la base de datos y sembrar usuarios iniciales con EnsureCreated
 using (var scope = app.Services.CreateScope())
