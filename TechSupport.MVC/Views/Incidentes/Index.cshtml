@@ -1,12 +1,29 @@
 @model List<TechSupport.MVC.Models.IncidenteViewModel>
 @{
     ViewData["Title"] = "Gestión de Incidentes";
+    var esAdmin = User.IsInRole("Administrador");
+    var esTecnico = User.IsInRole("Tecnico");
+    var rolNombre = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 class="fw-bold mb-1">📋 Panel de Incidentes</h2>
-        <p class="text-muted mb-0">Gestión de tickets y soporte técnico</p>
+        <p class="text-muted mb-0">
+            Vista adaptada para: <span class="badge bg-secondary">@rolNombre</span>
+            @if (esAdmin)
+            {
+                <span class="text-muted ms-2 small">(Visualizando todos los incidentes del sistema)</span>
+            }
+            else if (esTecnico)
+            {
+                <span class="text-muted ms-2 small">(Visualizando únicamente incidentes asignados a ti)</span>
+            }
+            else
+            {
+                <span class="text-muted ms-2 small">(Visualizando tus incidentes reportados)</span>
+            }
+        </p>
     </div>
     <a asp-action="Create" class="btn btn-primary rounded-pill shadow-sm px-4">
         ➕ Reportar Incidente
@@ -17,10 +34,10 @@
 {
     <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
         <div class="display-6 text-muted mb-3">📭</div>
-        <h4 class="fw-bold text-secondary">No hay incidentes registrados</h4>
-        <p class="text-muted">Aún no se han creado tickets o no tienes incidentes asignados según tu rol.</p>
+        <h4 class="fw-bold text-secondary">No hay incidentes disponibles</h4>
+        <p class="text-muted">No tienes incidentes asociados a tu cuenta en este momento.</p>
         <div class="mt-2">
-            <a asp-action="Create" class="btn btn-outline-primary rounded-pill px-4">Crear el primer incidente</a>
+            <a asp-action="Create" class="btn btn-outline-primary rounded-pill px-4">Crear un nuevo incidente</a>
         </div>
     </div>
 }
@@ -65,8 +82,10 @@ else
                         <tr>
                             <td class="ps-4 fw-bold text-muted">#@item.Id</td>
                             <td>
-                                <span class="fw-semibold text-dark">@item.Titulo</span>
-                                <div class="text-muted small text-truncate" style="max-width: 280px;">@item.Descripcion</div>
+                                <a asp-action="Details" asp-route-id="@item.Id" class="fw-semibold text-dark text-decoration-none">
+                                    @item.Titulo
+                                </a>
+                                <div class="text-muted small text-truncate" style="max-width: 260px;">@item.Descripcion</div>
                             </td>
                             <td><span class="badge @badgePrioridad rounded-pill px-2 py-1">@item.Prioridad</span></td>
                             <td><span class="badge @badgeEstado rounded-pill px-2 py-1">@item.Estado</span></td>
@@ -83,9 +102,31 @@ else
                             </td>
                             <td class="small text-muted">@item.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
                             <td class="text-end pe-4">
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                                    Detalles
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-secondary rounded-pill px-3 me-1">
+                                        Detalles
+                                    </a>
+
+                                    @if (esAdmin)
+                                    {
+                                        if (item.Estado != "Cerrado")
+                                        {
+                                            <form asp-action="Eliminar" asp-route-id="@item.Id" method="post" class="d-inline"
+                                                  onsubmit="return confirm('¿Estás seguro de que deseas eliminar permanentemente el incidente #@item.Id?');">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-outline-danger rounded-pill px-2" title="Eliminar Incidente">
+                                                    🗑️
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-outline-secondary rounded-pill px-2 opacity-50" disabled title="No se puede eliminar un incidente cerrado">
+                                                🔒
+                                            </button>
+                                        }
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }

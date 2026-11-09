@@ -1,8 +1,12 @@
 @model TechSupport.MVC.Models.IncidenteViewModel
 @{
     ViewData["Title"] = $"Incidente #{Model.Id}";
-    var rol = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var esAdmin = User.IsInRole("Administrador");
+    var esTecnico = User.IsInRole("Tecnico");
     var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+    bool esTecnicoAsignado = esTecnico && Model.TecnicoId.HasValue && Model.TecnicoId.Value.ToString() == currentUserId;
+    bool puedeCambiarEstado = esAdmin || esTecnicoAsignado;
+    var tecnicos = ViewBag.Tecnicos as List<TechSupport.MVC.Services.UsuarioSimpleViewModel> ?? new();
 
     var badgePrioridad = Model.Prioridad switch
     {
@@ -21,19 +25,50 @@
         "Cerrado" => "bg-dark",
         _ => "bg-light text-dark"
     };
+
+    // Próximo estado lógico permitido
+    string? proximoEstado = Model.Estado switch
+    {
+        "Pendiente" => "Asignado",
+        "Asignado" => "EnProceso",
+        "EnProceso" => "Resuelto",
+        "Resuelto" => "Cerrado",
+        _ => null
+    };
+
+    string? botonTextoProximoEstado = Model.Estado switch
+    {
+        "Asignado" => "⚙️ Iniciar Atención (En Proceso)",
+        "EnProceso" => "✅ Marcar como Resuelto",
+        "Resuelto" => "🔒 Cerrar Incidente",
+        _ => null
+    };
 }
 
 <div class="row justify-content-center">
-    <div class="col-md-9 col-lg-8">
-        <div class="mb-3">
-            <a asp-action="Index" class="text-decoration-none text-muted small">← Volver al listado</a>
+    <div class="col-md-10 col-lg-8">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                ← Volver al listado
+            </a>
+
+            @if (esAdmin && Model.Estado != "Cerrado")
+            {
+                <form asp-action="Eliminar" asp-route-id="@Model.Id" method="post"
+                      onsubmit="return confirm('¿Confirmas que deseas eliminar el incidente #@Model.Id? Esta acción no se puede deshacer.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                        🗑️ Eliminar Incidente
+                    </button>
+                </form>
+            }
         </div>
 
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
             <div class="card-header bg-white border-bottom p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                     <div>
-                        <span class="text-muted fw-bold">Ticket #@Model.Id</span>
+                        <span class="badge bg-light text-dark border mb-2">Ticket #@Model.Id</span>
                         <h3 class="fw-bold text-dark mb-1">@Model.Titulo</h3>
                         <div class="text-muted small">
                             Reportado por <strong>@Model.NombreUsuario</strong> el @Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm")
@@ -47,13 +82,13 @@
             </div>
 
             <div class="card-body p-4">
-                <h6 class="fw-bold text-secondary text-uppercase small">Descripción del Problema</h6>
-                <div class="p-3 bg-light rounded-3 mb-4 text-dark" style="white-space: pre-wrap;">@Model.Descripcion</div>
+                <h6 class="fw-bold text-secondary text-uppercase small mb-2">Descripción del Problema</h6>
+                <div class="p-3 bg-light rounded-3 mb-4 text-dark" style="white-space: pre-wrap; font-size: 1.05rem;">@Model.Descripcion</div>
 
-                <div class="row g-3">
+                <div class="row g-3 mb-4">
                     <div class="col-sm-6">
-                        <div class="border rounded-3 p-3">
-                            <span class="text-muted small d-block">Técnico Responsable</span>
+                        <div class="border rounded-3 p-3 bg-white h-100">
+                            <span class="text-muted small d-block">Técnico Asignado</span>
                             @if (!string.IsNullOrEmpty(Model.NombreTecnico))
                             {
                                 <span class="fw-bold text-primary fs-6">🛠️ @Model.NombreTecnico</span>
@@ -65,7 +100,7 @@
                         </div>
                     </div>
                     <div class="col-sm-6">
-                        <div class="border rounded-3 p-3">
+                        <div class="border rounded-3 p-3 bg-white h-100">
                             <span class="text-muted small d-block">Fecha de Resolución</span>
                             @if (Model.FechaResolucion.HasValue)
                             {
@@ -73,11 +108,86 @@
                             }
                             else
                             {
-                                <span class="text-muted fst-italic">Pendiente de resolución</span>
+                                <span class="text-muted fst-italic">Aún no resuelto</span>
                             }
                         </div>
                     </div>
                 </div>
+
+                @* Panel de Asignación de Técnico (Exclusivo Administrador) *@
+                @if (esAdmin && Model.Estado != "Cerrado")
+                {
+                    <div class="card bg-light border-0 rounded-3 p-3 mb-4">
+                        <h6 class="fw-bold text-dark mb-2">👨‍🔧 Asignación de Técnico (Solo Administrador)</h6>
+                        <p class="text-muted small mb-3">Asigna un técnico responsable. Al asignar, el estado pasará automáticamente a <strong>Asignado</strong>.</p>
+                        <form asp-action="AsignarTecnico" method="post" class="row g-2 align-items-center">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="incidenteId" value="@Model.Id" />
+                            <div class="col-sm-8">
+                                <select name="tecnicoId" class="form-select" required>
+                                    <option value="">-- Seleccionar Técnico --</option>
+                                    @foreach (var t in tecnicos)
+                                    {
+                                        if (Model.TecnicoId == t.Id)
+                                        {
+                                            <option value="@t.Id" selected>@t.NombreUsuario (Asignado actualmente)</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@t.Id">@t.NombreUsuario</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-sm-4">
+                                <button type="submit" class="btn btn-outline-primary w-100 fw-semibold">
+                                    Guardar Asignación
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                }
+
+                @* Panel de Cambio de Estado (Admin o Técnico Asignado) *@
+                @if (puedeCambiarEstado && Model.Estado != "Cerrado")
+                {
+                    <div class="border-top pt-3">
+                        <h6 class="fw-bold text-dark mb-2">🔄 Flujo de Estado</h6>
+                        <p class="text-muted small mb-3">
+                            El ciclo de vida avanza secuencialmente:
+                            <span class="badge bg-secondary">Pendiente</span> →
+                            <span class="badge bg-primary">Asignado</span> →
+                            <span class="badge bg-warning text-dark">En Proceso</span> →
+                            <span class="badge bg-success">Resuelto</span> →
+                            <span class="badge bg-dark">Cerrado</span>
+                        </p>
+
+                        @if (botonTextoProximoEstado != null && proximoEstado != null)
+                        {
+                            <form asp-action="CambiarEstado" method="post" class="d-inline"
+                                  onsubmit="return confirm('¿Confirmas avanzar el estado de este incidente a @proximoEstado?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="incidenteId" value="@Model.Id" />
+                                <input type="hidden" name="nuevoEstado" value="@proximoEstado" />
+                                <button type="submit" class="btn btn-success rounded-pill px-4 py-2 fw-semibold shadow-sm">
+                                    @botonTextoProximoEstado
+                                </button>
+                            </form>
+                        }
+                        else if (Model.Estado == "Pendiente" && esAdmin)
+                        {
+                            <div class="alert alert-info py-2 small mb-0">
+                                ℹ️ Asigna un técnico arriba para cambiar el estado a <strong>Asignado</strong>.
+                            </div>
+                        }
+                    </div>
+                }
+                else if (Model.Estado == "Cerrado")
+                {
+                    <div class="alert alert-secondary py-3 text-center mb-0 rounded-3">
+                        🔒 Este incidente se encuentra en estado <strong>Cerrado</strong>. Ha concluido su ciclo de atención.
+                    </div>
+                }
             </div>
         </div>
     </div>
