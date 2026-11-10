@@ -17,9 +17,9 @@ El sistema inicializa automáticamente la base de datos SQLite (`techsupport.db`
 
 | Usuario | Contraseña | Rol | Permisos Principales |
 |---|---|---|---|
-| `admin` | `Admin123*` | `Administrador` | Ver todos los incidentes, asignar técnicos, avanzar estados y eliminar incidentes (no cerrados). |
-| `tecnico` | `Tecnico123*` | `Tecnico` | Ver únicamente incidentes asignados a él, y avanzar estado de sus asignados (`Asignado` → `EnProceso` → `Resuelto`). |
-| `usuario` | `Usuario123*` | `Usuario` | Crear incidentes y consultar únicamente los incidentes reportados por él. |
+| `admin`, `admin2` | `Admin123*` | `Administrador` | Ver todos los incidentes, asignar técnicos, avanzar estados y eliminar incidentes (no cerrados). |
+| `tecnico`, `tecnico2`, `tecnico3` | `Tecnico123*` | `Tecnico` | Ver únicamente incidentes asignados a él, y avanzar estado de sus asignados (`Asignado` → `EnProceso` → `Resuelto`). |
+| `usuario`, `usuario2`, `usuario3` | `Usuario123*` | `Usuario` | Crear incidentes y consultar únicamente los incidentes reportados por él. |
 
 ---
 
